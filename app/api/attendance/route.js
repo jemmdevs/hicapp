@@ -1,232 +1,234 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import connectToDatabase from '@/lib/mongodb';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/route';
+import connectDB from '@/lib/mongodb';
 import Attendance from '@/models/Attendance';
 import Class from '@/models/Class';
+import ClassSession from '@/models/ClassSession';
 import User from '@/models/User';
-import mongoose from 'mongoose';
-import { format } from 'date-fns';
 
-export async function POST(req) {
+// GET - Obtener registros de asistencia
+export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session) {
-      return NextResponse.json(
-        { message: 'No autorizado' },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
     }
 
-    // Only teachers can register attendance through this endpoint
-    if (session.user.role !== 'teacher') {
-      return NextResponse.json(
-        { message: 'Solo los profesores pueden registrar asistencia' },
-        { status: 403 }
-      );
-    }
+    await connectDB();
 
-    const { classId, studentId, date = new Date(), present = true } = await req.json();
-
-    if (!classId || !studentId) {
-      return NextResponse.json(
-        { message: 'El ID de la clase y el ID del estudiante son obligatorios' },
-        { status: 400 }
-      );
-    }
-
-    await connectToDatabase();
-
-    // Validate the ID formats
-    if (!mongoose.Types.ObjectId.isValid(classId) || !mongoose.Types.ObjectId.isValid(studentId)) {
-      return NextResponse.json(
-        { message: 'ID de clase o estudiante no válido' },
-        { status: 400 }
-      );
-    }
-
-    // Check if the class exists and the current teacher owns it
-    const classData = await Class.findById(classId);
-    
-    if (!classData) {
-      return NextResponse.json(
-        { message: 'Clase no encontrada' },
-        { status: 404 }
-      );
-    }
-
-    if (classData.teacher.toString() !== session.user.id) {
-      return NextResponse.json(
-        { message: 'Solo el profesor de la clase puede registrar asistencia' },
-        { status: 403 }
-      );
-    }
-
-    // Check if the student exists and is enrolled in the class
-    const student = await User.findById(studentId);
-    
-    if (!student) {
-      return NextResponse.json(
-        { message: 'Estudiante no encontrado' },
-        { status: 404 }
-      );
-    }
-
-    if (!classData.students.includes(studentId)) {
-      return NextResponse.json(
-        { message: 'El estudiante no está inscrito en esta clase' },
-        { status: 400 }
-      );
-    }
-
-    // Create the Date object to use for tracking (just the date, not time)
-    const attendanceDate = new Date(date);
-    attendanceDate.setHours(0, 0, 0, 0);
-
-    // Check if attendance already registered for today
-    const existingAttendance = await Attendance.findOne({
-      class: classId,
-      student: studentId,
-      date: {
-        $gte: attendanceDate,
-        $lt: new Date(attendanceDate.getTime() + 24 * 60 * 60 * 1000)
-      }
-    });
-
-    if (existingAttendance) {
-      // Update existing attendance
-      existingAttendance.present = present;
-      await existingAttendance.save();
-
-      return NextResponse.json(
-        { 
-          message: 'Asistencia actualizada exitosamente',
-          attendance: existingAttendance
-        },
-        { status: 200 }
-      );
-    } else {
-      // Create new attendance record
-      const newAttendance = await Attendance.create({
-        class: classId,
-        student: studentId,
-        date: attendanceDate,
-        present
-      });
-
-      return NextResponse.json(
-        { 
-          message: 'Asistencia registrada exitosamente',
-          attendance: newAttendance
-        },
-        { status: 201 }
-      );
-    }
-  } catch (error) {
-    console.error('Error registering attendance:', error);
-    return NextResponse.json(
-      { message: 'Error interno del servidor' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(req) {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json(
-        { message: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
     const classId = searchParams.get('classId');
+    const sessionId = searchParams.get('sessionId');
     const studentId = searchParams.get('studentId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    if (!classId) {
-      return NextResponse.json(
-        { message: 'El ID de la clase es obligatorio' },
-        { status: 400 }
-      );
+    const query = {};
+
+    if (classId) query.class = classId;
+    if (sessionId) query.session = sessionId;
+    if (studentId) query.student = studentId;
+
+    // Filtrar por rango de fechas
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.date.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.date.$lte = end;
+      }
     }
 
-    await connectToDatabase();
-
-    // Validate the class ID format
-    if (!mongoose.Types.ObjectId.isValid(classId)) {
-      return NextResponse.json(
-        { message: 'ID de clase no válido' },
-        { status: 400 }
-      );
+    // Para profesores, verificar que tienen acceso a la clase
+    if (session.user.role === 'teacher') {
+      if (classId) {
+        const hasAccess = await Class.exists({
+          _id: classId,
+          teacher: session.user.id
+        });
+        
+        if (!hasAccess) {
+          return NextResponse.json({ message: 'No tiene permisos para ver los registros de esta clase' }, { status: 403 });
+        }
+      } else {
+        // Si no se especifica una clase, limitar a las clases del profesor
+        const teacherClasses = await Class.find({ teacher: session.user.id }).select('_id');
+        query.class = { $in: teacherClasses.map(c => c._id) };
+      }
     }
 
-    // Check if the class exists
-    const classData = await Class.findById(classId);
-    
-    if (!classData) {
-      return NextResponse.json(
-        { message: 'Clase no encontrada' },
-        { status: 404 }
-      );
-    }
-
-    // Check permissions: teachers can view all attendance, students only their own
-    const isTeacher = session.user.role === 'teacher' && classData.teacher.toString() === session.user.id;
-    const isEnrolledStudent = session.user.role === 'student' && classData.students.includes(session.user.id);
-
-    if (!isTeacher && !isEnrolledStudent) {
-      return NextResponse.json(
-        { message: 'No tienes permisos para ver la asistencia de esta clase' },
-        { status: 403 }
-      );
-    }
-
-    // Build query
-    let query = { class: classId };
-
-    // If student is requesting, show only their own attendance
-    if (isEnrolledStudent) {
+    // Para estudiantes, limitar a sus propios registros
+    if (session.user.role === 'student') {
       query.student = session.user.id;
-    } 
-    // If teacher is requesting for specific student
-    else if (isTeacher && studentId && mongoose.Types.ObjectId.isValid(studentId)) {
-      query.student = studentId;
     }
 
-    // Add date filter if provided
-    if (startDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      
-      if (!query.date) query.date = {};
-      query.date.$gte = start;
-    }
-
-    if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      
-      if (!query.date) query.date = {};
-      query.date.$lte = end;
-    }
-
-    // Get attendance records
     const attendanceRecords = await Attendance.find(query)
       .populate('student', 'name email')
+      .populate('class', 'name')
+      .populate('session', 'title date')
       .sort({ date: -1 });
 
     return NextResponse.json(attendanceRecords);
   } catch (error) {
-    console.error('Error fetching attendance:', error);
-    return NextResponse.json(
-      { message: 'Error interno del servidor' },
-      { status: 500 }
-    );
+    console.error('Error retrieving attendance records:', error);
+    return NextResponse.json({ message: 'Error al obtener los registros de asistencia' }, { status: 500 });
+  }
+}
+
+// POST - Registrar asistencia (estudiante escanea el QR del profesor)
+export async function POST(request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+    }
+
+    await connectDB();
+    const data = await request.json();
+
+    if (!data.sessionId || !data.qrCode) {
+      return NextResponse.json({ message: 'Datos incompletos. Se requiere ID de sesión y código QR' }, { status: 400 });
+    }
+
+    // Obtener la sesión de clase
+    const classSession = await ClassSession.findById(data.sessionId)
+      .populate({
+        path: 'class',
+        select: 'name students teacher',
+        populate: {
+          path: 'students',
+          select: 'name email'
+        }
+      });
+
+    if (!classSession) {
+      return NextResponse.json({ message: 'Sesión no encontrada' }, { status: 404 });
+    }
+
+    // Verificar que la sesión está activa y el QR no ha expirado
+    const now = new Date();
+    if (classSession.status !== 'active') {
+      return NextResponse.json({ message: 'La sesión no está activa' }, { status: 400 });
+    }
+    
+    if (classSession.qrExpiration && now > new Date(classSession.qrExpiration)) {
+      return NextResponse.json({ message: 'El código QR ha expirado' }, { status: 400 });
+    }
+
+    // Verificar que el código QR coincide
+    if (classSession.qrCode !== data.qrCode) {
+      return NextResponse.json({ message: 'Código QR inválido' }, { status: 400 });
+    }
+
+    // Si es un estudiante, verificar que está inscrito en la clase
+    if (session.user.role === 'student') {
+      const classObj = classSession.class;
+      const isEnrolled = classObj.students.some(s => 
+        s._id.toString() === session.user.id
+      );
+
+      if (!isEnrolled) {
+        return NextResponse.json({ message: 'No está inscrito en esta clase' }, { status: 403 });
+      }
+
+      // Verificar si ya registró asistencia para esta sesión
+      const existingAttendance = await Attendance.findOne({
+        session: classSession._id,
+        student: session.user.id
+      });
+
+      if (existingAttendance) {
+        return NextResponse.json({ message: 'Ya ha registrado su asistencia para esta sesión' }, { status: 400 });
+      }
+
+      // Registrar asistencia
+      const attendance = new Attendance({
+        class: classSession.class._id,
+        session: classSession._id,
+        student: session.user.id,
+        date: now,
+        present: true,
+        scanTime: now,
+        location: data.location || null
+      });
+
+      await attendance.save();
+
+      return NextResponse.json({ 
+        message: 'Asistencia registrada con éxito',
+        attendance: {
+          ...attendance.toObject(),
+          student: {
+            _id: session.user.id,
+            name: session.user.name,
+            email: session.user.email
+          }
+        }
+      });
+    } 
+    // Si es un profesor, está registrando a un estudiante manualmente
+    else if (session.user.role === 'teacher') {
+      // Verificar que el profesor es dueño de la clase
+      if (classSession.class.teacher.toString() !== session.user.id) {
+        return NextResponse.json({ message: 'No tiene permisos para registrar asistencia en esta clase' }, { status: 403 });
+      }
+
+      if (!data.studentId) {
+        return NextResponse.json({ message: 'Se requiere ID de estudiante' }, { status: 400 });
+      }
+
+      // Verificar que el estudiante está inscrito
+      const classObj = classSession.class;
+      const isEnrolled = classObj.students.some(s => 
+        s._id.toString() === data.studentId
+      );
+
+      if (!isEnrolled) {
+        return NextResponse.json({ message: 'El estudiante no está inscrito en esta clase' }, { status: 400 });
+      }
+
+      // Verificar si ya registró asistencia
+      const existingAttendance = await Attendance.findOne({
+        session: classSession._id,
+        student: data.studentId
+      });
+
+      if (existingAttendance) {
+        return NextResponse.json({ message: 'El estudiante ya ha registrado asistencia para esta sesión' }, { status: 400 });
+      }
+
+      // Registrar asistencia
+      const attendance = new Attendance({
+        class: classSession.class._id,
+        session: classSession._id,
+        student: data.studentId,
+        date: now,
+        present: true,
+        scanTime: now,
+        location: data.location || null
+      });
+
+      await attendance.save();
+
+      // Obtener datos del estudiante
+      const student = await User.findById(data.studentId).select('name email');
+
+      return NextResponse.json({ 
+        message: 'Asistencia registrada con éxito',
+        attendance: {
+          ...attendance.toObject(),
+          student: student
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error registering attendance:', error);
+    return NextResponse.json({ message: 'Error al registrar la asistencia' }, { status: 500 });
   }
 }
