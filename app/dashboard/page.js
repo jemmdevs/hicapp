@@ -68,19 +68,36 @@ export default function Dashboard() {
           <p className="text-gray-400 mt-1">Bienvenido, {session?.user?.name}</p>
         </div>
         
-        <Link
-          href="/dashboard/scan"
-          className="bg-primary text-white py-3 px-6 rounded shadow-md hover:bg-blue-600 transition-colors flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <rect x="8" y="8" width="3" height="3"></rect>
-            <rect x="13" y="8" width="3" height="3"></rect>
-            <rect x="8" y="13" width="3" height="3"></rect>
-            <rect x="13" y="13" width="3" height="3"></rect>
-          </svg>
-          Escanear QR de asistencia
-        </Link>
+        <div className="flex gap-4">
+          <Link
+            href="/dashboard/join-class"
+            className="bg-green-600 text-white py-3 px-6 rounded shadow-md hover:bg-green-700 transition-colors flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              <line x1="9" y1="7" x2="9" y2="7" stroke-width="3"></line>
+              <line x1="6" y1="7" x2="12" y2="7" stroke-width="3"></line>
+            </svg>
+            Unirse a clase
+          </Link>
+          
+          <Link
+            href="/dashboard/scan"
+            className="bg-primary text-white py-3 px-6 rounded shadow-md hover:bg-blue-600 transition-colors flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <rect x="8" y="8" width="3" height="3"></rect>
+              <rect x="13" y="8" width="3" height="3"></rect>
+              <rect x="8" y="13" width="3" height="3"></rect>
+              <rect x="13" y="13" width="3" height="3"></rect>
+            </svg>
+            Escanear QR
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -95,9 +112,21 @@ export default function Dashboard() {
               <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
             <p className="text-gray-500 mb-2">No estás inscrito en ninguna clase todavía.</p>
-            <p className="text-gray-400 text-sm">
-              Contacta con tu profesor para recibir un código de inscripción.
+            <p className="text-gray-400 text-sm mb-4">
+              Puedes unirte a una clase existente utilizando el código proporcionado por tu profesor.
             </p>
+            <Link
+              href="/dashboard/join-class"
+              className="inline-flex items-center bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <line x1="19" y1="8" x2="19" y2="14"></line>
+                <line x1="16" y1="11" x2="22" y2="11"></line>
+              </svg>
+              Unirse a una clase
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
