@@ -316,6 +316,33 @@ export default function QuickQRPage({ params }) {
             </button>
             
             <Link
+              href={`/admin-panel/class/${id}`}
+              className="bg-blue-600 text-white py-2 px-6 rounded shadow-md hover:bg-blue-700 transition-colors flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              Ver detalles de clase
+            </Link>
+            
+            {sessionData && (
+              <Link
+                href={`/admin-panel/sessions/${sessionData._id}/attendance`}
+                className="bg-green-700 text-white py-2 px-6 rounded shadow-md hover:bg-green-800 transition-colors flex items-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                  <path d="M9 14l2 2 4-4"></path>
+                </svg>
+                Ver asistencia
+              </Link>
+            )}
+            
+            <Link
               href="/admin-panel"
               className="bg-gray-700 text-white py-2 px-6 rounded shadow-md hover:bg-gray-800 transition-colors flex items-center"
             >
