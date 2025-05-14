@@ -181,10 +181,10 @@ export default function ClassDetails({ params }) {
         </div>
         <div className="flex gap-4">
           <Link
-            href="/admin-panel/sessions"
+            href={`/admin-panel/sessions?classId=${id}`}
             className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
           >
-            Gestionar sesiones
+            Generar QR de asistencia
           </Link>
           <Link
             href="/admin-panel"

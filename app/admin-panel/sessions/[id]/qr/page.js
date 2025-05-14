@@ -230,8 +230,11 @@ export default function SessionQRPage({ params }) {
               Código QR de asistencia
             </p>
             <p className="text-gray-500 mb-2">
-              Los estudiantes deben escanear este código para registrar su asistencia
+              Muestre este código a sus estudiantes para que lo escaneen con la opción "Escanear QR" en sus cuentas
             </p>
+            <div className="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-2 rounded mb-3">
+              <strong>Instrucciones:</strong> Los estudiantes deben iniciar sesión en sus cuentas, ir al dashboard y hacer clic en "Escanear QR de asistencia"
+            </div>
             <div className="flex items-center justify-center space-x-2 mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
                 <circle cx="12" cy="12" r="10" />

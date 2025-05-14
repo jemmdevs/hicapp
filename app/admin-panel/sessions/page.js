@@ -140,8 +140,8 @@ export default function SessionsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Sesiones de Clase</h1>
-          <p className="text-gray-400 mt-1">Programa y gestiona las sesiones para tus clases</p>
+          <h1 className="text-3xl font-bold text-primary">Generar QR de Asistencia</h1>
+          <p className="text-gray-400 mt-1">Crea una sesión activa y genera un código QR para que los alumnos registren su asistencia</p>
         </div>
         <div>
           <Link
@@ -270,16 +270,17 @@ export default function SessionsPage() {
                       {session.status === 'active' && (
                         <Link
                           href={`/admin-panel/sessions/${session._id}/qr`}
-                          className="text-green-600 hover:underline"
+                          className="text-green-600 hover:underline flex items-center"
                           title="Generar QR"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                             <rect x="8" y="8" width="3" height="3"></rect>
                             <rect x="13" y="8" width="3" height="3"></rect>
                             <rect x="8" y="13" width="3" height="3"></rect>
                             <rect x="13" y="13" width="3" height="3"></rect>
                           </svg>
+                          <span>Generar QR</span>
                         </Link>
                       )}
                       

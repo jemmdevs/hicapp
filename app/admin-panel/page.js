@@ -95,10 +95,10 @@ export default function AdminPanel() {
                     Ver detalles
                   </Link>
                   <Link
-                    href="/admin-panel/sessions"
+                    href={`/admin-panel/sessions?classId=${classItem._id}`}
                     className="text-green-400 hover-underline"
                   >
-                    Gestionar sesiones
+                    Generar QR
                   </Link>
                 </div>
               </div>
