@@ -95,10 +95,10 @@ export default function AdminPanel() {
                     Ver detalles
                   </Link>
                   <Link
-                    href={`/admin-panel/attendance/${classItem._id}`}
+                    href="/admin-panel/sessions"
                     className="text-green-400 hover-underline"
                   >
-                    Registrar asistencia
+                    Gestionar sesiones
                   </Link>
                 </div>
               </div>
