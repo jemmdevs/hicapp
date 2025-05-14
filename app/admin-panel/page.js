@@ -95,7 +95,7 @@ export default function AdminPanel() {
                     Ver detalles
                   </Link>
                   <Link
-                    href={`/admin-panel/sessions?classId=${classItem._id}`}
+                    href={`/admin-panel/quick-qr/${classItem._id}`}
                     className="text-green-400 hover-underline"
                   >
                     Generar QR
