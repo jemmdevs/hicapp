@@ -148,7 +148,7 @@ export default function Dashboard() {
                     </span>
                     <div className="flex space-x-2">
                       <Link
-                        href={`/dashboard/scan`}
+                        href={`/dashboard/scan?classId=${classItem._id}`}
                         className="text-primary hover:underline flex items-center text-sm"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">

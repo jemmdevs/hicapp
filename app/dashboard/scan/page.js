@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -9,6 +9,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 export default function ScanQRPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -31,6 +32,13 @@ export default function ScanQRPage() {
     } else if (status === 'authenticated' && session?.user?.role === 'student') {
       fetchEnrolledClasses();
       fetchRecentAttendances();
+      
+      // Check if classId is in the URL
+      const classIdFromUrl = searchParams.get('classId');
+      if (classIdFromUrl) {
+        setSelectedClassId(classIdFromUrl);
+      }
+      
       setLoading(false);
     }
 
@@ -44,7 +52,7 @@ export default function ScanQRPage() {
         }
       }
     };
-  }, [status, session, router]);
+  }, [status, session, router, searchParams]);
 
   const fetchEnrolledClasses = async () => {
     try {
