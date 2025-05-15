@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import { Html5Qrcode } from 'html5-qrcode';
 
 export default function ScanQRPage() {
   const { data: session, status } = useSession();
@@ -18,19 +19,9 @@ export default function ScanQRPage() {
   const [scanning, setScanning] = useState(false);
   const [enrolledClasses, setEnrolledClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('');
-  const [classIdFromUrl, setClassIdFromUrl] = useState(null);
-  const [Html5QrcodeScannerLib, setHtml5QrcodeScannerLib] = useState(null);
   
   const scannerRef = useRef(null);
   const html5QrcodeRef = useRef(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      import('html5-qrcode').then(module => {
-        setHtml5QrcodeScannerLib(module.Html5Qrcode);
-      });
-    }
-  }, []);
 
   useEffect(() => {
     // Check if user is authenticated and is a student
@@ -43,10 +34,9 @@ export default function ScanQRPage() {
       fetchRecentAttendances();
       
       // Check if classId is in the URL
-      const classIdParam = searchParams.get('classId');
-      if (classIdParam) {
-        setSelectedClassId(classIdParam);
-        setClassIdFromUrl(classIdParam);
+      const classIdFromUrl = searchParams.get('classId');
+      if (classIdFromUrl) {
+        setSelectedClassId(classIdFromUrl);
       }
       
       setLoading(false);
@@ -54,7 +44,7 @@ export default function ScanQRPage() {
 
     // Cleanup scanner on unmount
     return () => {
-      if (typeof window !== 'undefined' && html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
+      if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
         try {
           html5QrcodeRef.current.stop();
         } catch (error) {
@@ -102,19 +92,19 @@ export default function ScanQRPage() {
   };
 
   useEffect(() => {
-    if (!loading && session && !scannerStarted && selectedClassId && Html5QrcodeScannerLib) {
+    if (!loading && session && !scannerStarted && selectedClassId) {
       initScanner();
     }
-  }, [loading, session, scannerStarted, selectedClassId, Html5QrcodeScannerLib]);
+  }, [loading, session, scannerStarted, selectedClassId]);
 
   const startScanner = async () => {
-    if (!html5QrcodeRef.current || scanning || !selectedClassId || !Html5QrcodeScannerLib) return;
+    if (!html5QrcodeRef.current || scanning || !selectedClassId) return;
     
     setScanning(true);
     setScannerError('');
     
     try {
-      const cameras = await Html5QrcodeScannerLib.getCameras();
+      const cameras = await Html5Qrcode.getCameras();
       if (cameras && cameras.length > 0) {
         await html5QrcodeRef.current.start(
           { facingMode: "environment" }, // Prefer back camera
@@ -147,11 +137,11 @@ export default function ScanQRPage() {
   };
 
   const initScanner = () => {
-    if (!scannerRef.current || scannerStarted || !selectedClassId || !Html5QrcodeScannerLib) return;
+    if (!scannerRef.current || scannerStarted || !selectedClassId) return;
 
     try {
       // Initialize the scanner but don't start it yet
-      html5QrcodeRef.current = new Html5QrcodeScannerLib("qr-reader");
+      html5QrcodeRef.current = new Html5Qrcode("qr-reader");
       setScannerStarted(true);
       // Start scanning automatically
       startScanner();
@@ -197,7 +187,9 @@ export default function ScanQRPage() {
         },
         body: JSON.stringify({
           sessionId: qrData.sessionId,
-          qrCode: qrData.qrCode
+          qrCode: qrData.qrCode,
+          // Optional: send location data for validation
+          location: getCurrentLocation()
         }),
       });
 
@@ -234,6 +226,25 @@ export default function ScanQRPage() {
     // console.log('QR scan error:', error);
   };
   
+  // Helper function to get current location (if available)
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          return {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          return null;
+        }
+      );
+    }
+    return null;
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('es-ES', {
@@ -301,34 +312,24 @@ export default function ScanQRPage() {
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
           <h2 className="text-xl font-semibold mb-4 text-gray-800">Escanear Código QR</h2>
           
-          {!classIdFromUrl && (
-            <div className="mb-6">
-              <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-2">
-                Selecciona la clase a la que deseas asistir:
-              </label>
-              <select
-                id="class-select"
-                value={selectedClassId}
-                onChange={handleClassChange}
-                className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-              >
-                <option value="">-- Selecciona una clase --</option>
-                {enrolledClasses.map(classItem => (
-                  <option key={classItem._id} value={classItem._id}>
-                    {classItem.name} - {classItem.teacher?.name || 'Profesor no asignado'}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          
-          {classIdFromUrl && selectedClassId && (
-            <div className="mb-6 text-center">
-              <p className="text-green-600 font-medium mb-2">
-                Escaneando para: {enrolledClasses.find(c => c._id === selectedClassId)?.name || 'Clase seleccionada'}
-              </p>
-            </div>
-          )}
+          <div className="mb-6">
+            <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-2">
+              Selecciona la clase a la que deseas asistir:
+            </label>
+            <select
+              id="class-select"
+              value={selectedClassId}
+              onChange={handleClassChange}
+              className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+            >
+              <option value="">-- Selecciona una clase --</option>
+              {enrolledClasses.map(classItem => (
+                <option key={classItem._id} value={classItem._id}>
+                  {classItem.name} - {classItem.teacher?.name || 'Profesor no asignado'}
+                </option>
+              ))}
+            </select>
+          </div>
           
           {enrolledClasses.length === 0 ? (
             <div className="text-center py-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
