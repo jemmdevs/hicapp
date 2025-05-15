@@ -19,6 +19,7 @@ export default function ScanQRPage() {
   const [scanning, setScanning] = useState(false);
   const [enrolledClasses, setEnrolledClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('');
+  const [classIdFromUrl, setClassIdFromUrl] = useState(null);
   
   const scannerRef = useRef(null);
   const html5QrcodeRef = useRef(null);
@@ -34,9 +35,10 @@ export default function ScanQRPage() {
       fetchRecentAttendances();
       
       // Check if classId is in the URL
-      const classIdFromUrl = searchParams.get('classId');
-      if (classIdFromUrl) {
-        setSelectedClassId(classIdFromUrl);
+      const classIdParam = searchParams.get('classId');
+      if (classIdParam) {
+        setSelectedClassId(classIdParam);
+        setClassIdFromUrl(classIdParam);
       }
       
       setLoading(false);
@@ -187,9 +189,7 @@ export default function ScanQRPage() {
         },
         body: JSON.stringify({
           sessionId: qrData.sessionId,
-          qrCode: qrData.qrCode,
-          // Optional: send location data for validation
-          location: getCurrentLocation()
+          qrCode: qrData.qrCode
         }),
       });
 
@@ -226,25 +226,6 @@ export default function ScanQRPage() {
     // console.log('QR scan error:', error);
   };
   
-  // Helper function to get current location (if available)
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          return {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          };
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          return null;
-        }
-      );
-    }
-    return null;
-  };
-
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('es-ES', {
@@ -312,24 +293,34 @@ export default function ScanQRPage() {
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
           <h2 className="text-xl font-semibold mb-4 text-gray-800">Escanear Código QR</h2>
           
-          <div className="mb-6">
-            <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-2">
-              Selecciona la clase a la que deseas asistir:
-            </label>
-            <select
-              id="class-select"
-              value={selectedClassId}
-              onChange={handleClassChange}
-              className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-            >
-              <option value="">-- Selecciona una clase --</option>
-              {enrolledClasses.map(classItem => (
-                <option key={classItem._id} value={classItem._id}>
-                  {classItem.name} - {classItem.teacher?.name || 'Profesor no asignado'}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!classIdFromUrl && (
+            <div className="mb-6">
+              <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Selecciona la clase a la que deseas asistir:
+              </label>
+              <select
+                id="class-select"
+                value={selectedClassId}
+                onChange={handleClassChange}
+                className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+              >
+                <option value="">-- Selecciona una clase --</option>
+                {enrolledClasses.map(classItem => (
+                  <option key={classItem._id} value={classItem._id}>
+                    {classItem.name} - {classItem.teacher?.name || 'Profesor no asignado'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          {classIdFromUrl && selectedClassId && (
+            <div className="mb-6 text-center">
+              <p className="text-green-600 font-medium mb-2">
+                Escaneando para: {enrolledClasses.find(c => c._id === selectedClassId)?.name || 'Clase seleccionada'}
+              </p>
+            </div>
+          )}
           
           {enrolledClasses.length === 0 ? (
             <div className="text-center py-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
