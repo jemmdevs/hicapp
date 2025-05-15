@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
 export default function ScanQRPage() {
   const { data: session, status } = useSession();
@@ -15,9 +15,10 @@ export default function ScanQRPage() {
   const [scannerStarted, setScannerStarted] = useState(false);
   const [scannerError, setScannerError] = useState('');
   const [recentAttendances, setRecentAttendances] = useState([]);
+  const [scanning, setScanning] = useState(false);
   
   const scannerRef = useRef(null);
-  const html5QrcodeScannerRef = useRef(null);
+  const html5QrcodeRef = useRef(null);
 
   useEffect(() => {
     // Check if user is authenticated and is a student
@@ -32,11 +33,11 @@ export default function ScanQRPage() {
 
     // Cleanup scanner on unmount
     return () => {
-      if (html5QrcodeScannerRef.current) {
+      if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
         try {
-          html5QrcodeScannerRef.current.clear();
+          html5QrcodeRef.current.stop();
         } catch (error) {
-          console.error('Error clearing scanner:', error);
+          console.error('Error stopping scanner:', error);
         }
       }
     };
@@ -69,79 +70,123 @@ export default function ScanQRPage() {
     }
   }, [loading, session, scannerStarted]);
 
+  const startScanner = async () => {
+    if (!html5QrcodeRef.current || scanning) return;
+    
+    setScanning(true);
+    setScannerError('');
+    
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (cameras && cameras.length > 0) {
+        await html5QrcodeRef.current.start(
+          { facingMode: "environment" }, // Prefer back camera
+          {
+            fps: 15, // Higher fps for faster detection
+            qrbox: { width: 250, height: 250 }
+          },
+          handleQrCodeSuccess,
+          handleQrCodeError
+        );
+      } else {
+        setScannerError('No se encontró ninguna cámara. Por favor, asegúrate de que tu dispositivo tiene acceso a la cámara.');
+      }
+    } catch (err) {
+      console.error('Error starting scanner:', err);
+      setScannerError('Error al iniciar la cámara. Por favor, asegúrate de que tu dispositivo tiene acceso a la cámara.');
+      setScanning(false);
+    }
+  };
+
+  const stopScanner = async () => {
+    if (!html5QrcodeRef.current || !scanning) return;
+    
+    try {
+      await html5QrcodeRef.current.stop();
+      setScanning(false);
+    } catch (err) {
+      console.error('Error stopping scanner:', err);
+    }
+  };
+
   const initScanner = () => {
     if (!scannerRef.current || scannerStarted) return;
 
-    const config = {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-      rememberLastUsedCamera: true,
-    };
-
     try {
-      const scanner = new Html5QrcodeScanner('qr-reader', config, false);
-      
-      const successCallback = async (decodedText) => {
-        try {
-          // Parse QR data
-          const qrData = JSON.parse(decodedText);
-          
-          // Validate QR data has required fields
-          if (!qrData.sessionId || !qrData.qrCode || !qrData.classId) {
-            setScannerError('QR inválido. Formato incorrecto.');
-            setTimeout(() => setScannerError(''), 3000);
-            return;
-          }
-
-          // Register attendance
-          const response = await fetch('/api/attendance', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              sessionId: qrData.sessionId,
-              qrCode: qrData.qrCode,
-              // Optional: send location data for validation
-              location: getCurrentLocation()
-            }),
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.message || 'Error al registrar asistencia');
-          }
-
-          // Show success message
-          setSuccess('¡Asistencia registrada con éxito!');
-          
-          // Refresh attendance list
-          fetchRecentAttendances();
-          
-          // Hide success message after 5 seconds
-          setTimeout(() => setSuccess(''), 5000);
-          
-        } catch (error) {
-          console.error('Error processing QR code:', error);
-          setScannerError(error.message || 'Error al procesar el código QR.');
-          setTimeout(() => setScannerError(''), 3000);
-        }
-      };
-
-      const errorCallback = (error) => {
-        console.error('QR scan error:', error);
-        // We don't need to show every scan error to the user
-      };
-
-      scanner.render(successCallback, errorCallback);
-      html5QrcodeScannerRef.current = scanner;
+      // Initialize the scanner but don't start it yet
+      html5QrcodeRef.current = new Html5Qrcode("qr-reader");
       setScannerStarted(true);
-
+      // Start scanning automatically
+      startScanner();
     } catch (error) {
       console.error('Error initializing scanner:', error);
       setScannerError('Error al inicializar el escáner QR. Por favor, verifica que tu dispositivo tiene acceso a la cámara.');
     }
+  };
+
+  const handleQrCodeSuccess = async (decodedText) => {
+    try {
+      // Stop scanner immediately to prevent multiple scans
+      await stopScanner();
+      
+      // Parse QR data
+      const qrData = JSON.parse(decodedText);
+      
+      // Validate QR data has required fields
+      if (!qrData.sessionId || !qrData.qrCode || !qrData.classId) {
+        setScannerError('QR inválido. Formato incorrecto.');
+        setTimeout(() => {
+          setScannerError('');
+          startScanner(); // Restart scanner after error
+        }, 3000);
+        return;
+      }
+
+      // Register attendance
+      const response = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: qrData.sessionId,
+          qrCode: qrData.qrCode,
+          // Optional: send location data for validation
+          location: getCurrentLocation()
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Error al registrar asistencia');
+      }
+
+      // Show success message
+      setSuccess('¡Asistencia registrada con éxito!');
+      
+      // Refresh attendance list
+      fetchRecentAttendances();
+      
+      // Hide success message after 5 seconds and restart scanner
+      setTimeout(() => {
+        setSuccess('');
+        startScanner(); // Restart scanner after success message disappears
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Error processing QR code:', error);
+      setScannerError(error.message || 'Error al procesar el código QR.');
+      setTimeout(() => {
+        setScannerError('');
+        startScanner(); // Restart scanner after error
+      }, 3000);
+    }
+  };
+  
+  const handleQrCodeError = (error) => {
+    // We don't need to show every scan error to the user
+    // console.log('QR scan error:', error);
   };
   
   // Helper function to get current location (if available)
@@ -239,6 +284,25 @@ export default function ScanQRPage() {
               ref={scannerRef} 
               className="mx-auto max-w-[500px]"
             ></div>
+            
+            <div className="mt-4 flex justify-center">
+              {!scanning && !success && (
+                <button 
+                  onClick={startScanner}
+                  className="bg-primary text-white py-2 px-4 rounded hover:bg-primary-dark"
+                >
+                  Iniciar escáner
+                </button>
+              )}
+              {scanning && !success && (
+                <button 
+                  onClick={stopScanner}
+                  className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+                >
+                  Detener escáner
+                </button>
+              )}
+            </div>
             
             <p className="text-sm text-gray-500 mt-4">
               Apunta la cámara al código QR mostrado por tu profesor para registrar tu asistencia.
