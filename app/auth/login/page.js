@@ -13,6 +13,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const router = useRouter();
 
   const handleChange = (e) => {
@@ -22,6 +23,10 @@ export default function Login() {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+  };
+
+  const handleRememberMeChange = () => {
+    setRememberMe(!rememberMe);
   };
 
   const handleSubmit = async (e) => {
@@ -34,6 +39,7 @@ export default function Login() {
         email: formData.email,
         password: formData.password,
         redirect: false,
+        callbackUrl: rememberMe ? '/dashboard' : undefined,
       });
 
       if (result.error) {
@@ -152,6 +158,20 @@ export default function Login() {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={handleRememberMeChange}
+                className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                Recordarme
+              </label>
             </div>
               
             <div className="pt-4">

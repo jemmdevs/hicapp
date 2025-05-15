@@ -1,7 +1,10 @@
+'use client';
+
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import Link from "next/link";
+import { useSession, signOut } from 'next-auth/react';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -14,6 +17,12 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  const { data: session, status } = useSession();
+  
+  const handleSignOut = () => {
+    signOut({ callbackUrl: '/' });
+  };
+  
   return (
     <html lang="es">
       <body className={`${inter.variable} bg-black text-white`}>
@@ -29,6 +38,25 @@ export default function RootLayout({ children }) {
                   </div>
                   <h1 className="text-2xl font-bold text-primary">HicApp</h1>
                 </Link>
+                
+                {status === 'authenticated' && (
+                  <div className="flex items-center gap-4">
+                    <span className="text-gray-400 hidden sm:inline-block">
+                      {session.user.name}
+                    </span>
+                    <button 
+                      onClick={handleSignOut}
+                      className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-md transition-colors flex items-center"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                      </svg>
+                      Salir
+                    </button>
+                  </div>
+                )}
               </div>
             </header>
             <main className="flex-grow flex flex-col">
