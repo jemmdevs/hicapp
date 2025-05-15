@@ -12,11 +12,16 @@ export default function Login() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   const handleSubmit = async (e) => {
@@ -79,7 +84,7 @@ export default function Login() {
             </div>
           )}
             
-          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-primary mb-2">
                 Correo electrónico
@@ -97,7 +102,7 @@ export default function Login() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full pl-10 px-3 py-3 border border-gray-300 bg-white text-gray-900 rounded-md shadow-sm focus-outline-none focus-ring-2 focus-ring-primary"
+                  className="w-full pl-10 px-3 py-3 border border-gray-300 bg-white text-gray-900 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="tu@email.com"
                   required
                 />
@@ -109,7 +114,7 @@ export default function Login() {
                 <label htmlFor="password" className="block text-sm font-medium text-primary">
                   Contraseña
                 </label>
-                <a href="#" className="text-xs text-primary hover-underline">
+                <a href="#" className="text-xs text-primary hover:underline">
                   ¿Olvidaste tu contraseña?
                 </a>
               </div>
@@ -121,28 +126,44 @@ export default function Login() {
                   </svg>
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   id="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full pl-10 px-3 py-3 border border-gray-300 bg-white text-gray-900 rounded-md shadow-sm focus-outline-none focus-ring-2 focus-ring-primary"
+                  className="w-full pl-10 pr-10 px-3 py-3 border border-gray-300 bg-white text-gray-900 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="••••••••"
                   required
                 />
+                <div 
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-gray-500 hover:text-gray-700"
+                  onClick={togglePasswordVisibility}
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  )}
+                </div>
               </div>
             </div>
               
-            <div className="pt-2">
+            <div className="pt-4">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary text-white py-3 px-4 rounded-md shadow-md hover-bg-green-700 transition-colors disabled-opacity-50 font-medium"
+                className="w-full bg-primary text-white py-3 px-4 rounded-md shadow-md hover:bg-blue-600 transition-colors disabled:opacity-50 font-medium"
               >
                 {loading ? (
                   <span className="flex items-center justify-center">
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <circle className="opacity-25" cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="3"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     Iniciando sesión...
@@ -160,11 +181,11 @@ export default function Login() {
             </div>
             <p className="mb-4 text-gray-700">
               ¿No tienes una cuenta?{' '}
-              <Link href="/auth/register" className="text-primary hover-underline font-medium">
+              <Link href="/auth/register" className="text-primary hover:underline font-medium">
                 Regístrate aquí
               </Link>
             </p>
-            <Link href="/" className="inline-flex items-center text-sm text-gray-500 hover-text-primary">
+            <Link href="/" className="inline-flex items-center text-sm text-gray-500 hover:text-primary">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                 <path d="M19 12H5M12 19l-7-7 7-7"></path>
               </svg>

@@ -16,6 +16,8 @@ export default function ScanQRPage() {
   const [scannerError, setScannerError] = useState('');
   const [recentAttendances, setRecentAttendances] = useState([]);
   const [scanning, setScanning] = useState(false);
+  const [enrolledClasses, setEnrolledClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
   
   const scannerRef = useRef(null);
   const html5QrcodeRef = useRef(null);
@@ -27,6 +29,7 @@ export default function ScanQRPage() {
     } else if (status === 'authenticated' && session?.user?.role !== 'student') {
       router.push('/admin-panel');
     } else if (status === 'authenticated' && session?.user?.role === 'student') {
+      fetchEnrolledClasses();
       fetchRecentAttendances();
       setLoading(false);
     }
@@ -42,6 +45,22 @@ export default function ScanQRPage() {
       }
     };
   }, [status, session, router]);
+
+  const fetchEnrolledClasses = async () => {
+    try {
+      const response = await fetch('/api/classes');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error('Error al obtener las clases inscritas');
+      }
+
+      setEnrolledClasses(data);
+    } catch (error) {
+      console.error('Error fetching enrolled classes:', error);
+      setError('Error al cargar las clases inscritas.');
+    }
+  };
 
   const fetchRecentAttendances = async () => {
     try {
@@ -65,13 +84,13 @@ export default function ScanQRPage() {
   };
 
   useEffect(() => {
-    if (!loading && session && !scannerStarted) {
+    if (!loading && session && !scannerStarted && selectedClassId) {
       initScanner();
     }
-  }, [loading, session, scannerStarted]);
+  }, [loading, session, scannerStarted, selectedClassId]);
 
   const startScanner = async () => {
-    if (!html5QrcodeRef.current || scanning) return;
+    if (!html5QrcodeRef.current || scanning || !selectedClassId) return;
     
     setScanning(true);
     setScannerError('');
@@ -110,7 +129,7 @@ export default function ScanQRPage() {
   };
 
   const initScanner = () => {
-    if (!scannerRef.current || scannerStarted) return;
+    if (!scannerRef.current || scannerStarted || !selectedClassId) return;
 
     try {
       // Initialize the scanner but don't start it yet
@@ -135,6 +154,16 @@ export default function ScanQRPage() {
       // Validate QR data has required fields
       if (!qrData.sessionId || !qrData.qrCode || !qrData.classId) {
         setScannerError('QR inválido. Formato incorrecto.');
+        setTimeout(() => {
+          setScannerError('');
+          startScanner(); // Restart scanner after error
+        }, 3000);
+        return;
+      }
+
+      // Verify the class ID matches the selected class
+      if (qrData.classId !== selectedClassId) {
+        setScannerError('Este QR no corresponde a la clase seleccionada.');
         setTimeout(() => {
           setScannerError('');
           startScanner(); // Restart scanner after error
@@ -216,6 +245,19 @@ export default function ScanQRPage() {
     }).format(date);
   };
 
+  const handleClassChange = (e) => {
+    const newClassId = e.target.value;
+    setSelectedClassId(newClassId);
+    
+    // Reset scanner if class changes
+    if (scanning) {
+      stopScanner();
+    }
+    if (scannerStarted) {
+      setScannerStarted(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-12 text-center text-primary">
@@ -262,52 +304,99 @@ export default function ScanQRPage() {
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
           <h2 className="text-xl font-semibold mb-4 text-gray-800">Escanear Código QR</h2>
           
-          <div className="text-center">
-            {scannerError && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {scannerError}
-              </div>
-            )}
-            
-            {success && (
-              <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                </svg>
-                {success}
-              </div>
-            )}
-            
-            <div 
-              id="qr-reader" 
-              ref={scannerRef} 
-              className="mx-auto max-w-[500px]"
-            ></div>
-            
-            <div className="mt-4 flex justify-center">
-              {!scanning && !success && (
-                <button 
-                  onClick={startScanner}
-                  className="bg-primary text-white py-2 px-4 rounded hover:bg-primary-dark"
-                >
-                  Iniciar escáner
-                </button>
-              )}
-              {scanning && !success && (
-                <button 
-                  onClick={stopScanner}
-                  className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
-                >
-                  Detener escáner
-                </button>
-              )}
-            </div>
-            
-            <p className="text-sm text-gray-500 mt-4">
-              Apunta la cámara al código QR mostrado por tu profesor para registrar tu asistencia.
-            </p>
+          <div className="mb-6">
+            <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-2">
+              Selecciona la clase a la que deseas asistir:
+            </label>
+            <select
+              id="class-select"
+              value={selectedClassId}
+              onChange={handleClassChange}
+              className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+            >
+              <option value="">-- Selecciona una clase --</option>
+              {enrolledClasses.map(classItem => (
+                <option key={classItem._id} value={classItem._id}>
+                  {classItem.name} - {classItem.teacher?.name || 'Profesor no asignado'}
+                </option>
+              ))}
+            </select>
           </div>
+          
+          {enrolledClasses.length === 0 ? (
+            <div className="text-center py-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-4 text-yellow-500">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <p className="text-gray-700 font-medium mb-2">No estás inscrito en ninguna clase</p>
+              <p className="text-gray-600 mb-4">Debes unirte a una clase antes de poder registrar asistencia.</p>
+              <Link
+                href="/dashboard/join-class"
+                className="inline-flex items-center bg-primary text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                Unirse a una clase
+              </Link>
+            </div>
+          ) : !selectedClassId ? (
+            <div className="text-center py-6 bg-blue-50 border-l-4 border-blue-400 p-4">
+              <p className="text-blue-700">Selecciona una clase para iniciar el escáner.</p>
+            </div>
+          ) : (
+            <div className="text-center">
+              {scannerError && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                  {scannerError}
+                </div>
+              )}
+              
+              {success && (
+                <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                  {success}
+                </div>
+              )}
+              
+              <div 
+                id="qr-reader" 
+                ref={scannerRef} 
+                className="mx-auto max-w-[500px]"
+              ></div>
+              
+              <div className="mt-4 flex justify-center">
+                {!scanning && !success && (
+                  <button 
+                    onClick={startScanner}
+                    className="bg-primary text-white py-2 px-4 rounded hover:bg-primary-dark"
+                  >
+                    Iniciar escáner
+                  </button>
+                )}
+                {scanning && !success && (
+                  <button 
+                    onClick={stopScanner}
+                    className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+                  >
+                    Detener escáner
+                  </button>
+                )}
+              </div>
+              
+              <p className="text-sm text-gray-500 mt-4">
+                Apunta la cámara al código QR mostrado por tu profesor para registrar tu asistencia.
+              </p>
+            </div>
+          )}
         </div>
         
         {/* Recent Attendances */}

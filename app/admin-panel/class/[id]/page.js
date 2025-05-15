@@ -14,6 +14,8 @@ export default function ClassDetails({ params }) {
   const [attendanceStats, setAttendanceStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [attendanceHistory, setAttendanceHistory] = useState([]);
+  const [dateFilter, setDateFilter] = useState('');
 
   useEffect(() => {
     // Check if user is authenticated and is a teacher
@@ -52,6 +54,19 @@ export default function ClassDetails({ params }) {
 
       // Calculate attendance statistics
       calculateAttendanceStats(attendanceData, classResult.students);
+      
+      // Get all attendance records to display history
+      const allAttendanceResponse = await fetch(`/api/attendance?classId=${id}`);
+      const allAttendanceData = await allAttendanceResponse.json();
+      
+      if (!allAttendanceResponse.ok) {
+        throw new Error('Error al obtener el historial de asistencia');
+      }
+      
+      // Group attendance by date
+      const groupedAttendance = groupAttendanceByDate(allAttendanceData);
+      setAttendanceHistory(groupedAttendance);
+      
     } catch (error) {
       console.error('Error fetching class data:', error);
       setError('Error al cargar los datos de la clase. Por favor, intenta de nuevo más tarde.');
@@ -104,6 +119,63 @@ export default function ClassDetails({ params }) {
       studentStats
     });
   };
+
+  // Group attendance records by date
+  const groupAttendanceByDate = (attendanceRecords) => {
+    const groupedData = {};
+    
+    // Sort records by date (newest first)
+    const sortedRecords = [...attendanceRecords].sort((a, b) => 
+      new Date(b.date) - new Date(a.date)
+    );
+    
+    // Group by date
+    sortedRecords.forEach(record => {
+      const date = new Date(record.date).toISOString().split('T')[0]; // Get YYYY-MM-DD format
+      
+      if (!groupedData[date]) {
+        groupedData[date] = {
+          date,
+          records: [],
+          presentCount: 0,
+          totalCount: students.length
+        };
+      }
+      
+      groupedData[date].records.push(record);
+      
+      if (record.present) {
+        groupedData[date].presentCount++;
+      }
+    });
+    
+    // Convert to array format for easier rendering
+    return Object.values(groupedData);
+  };
+  
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('es-ES', {
+      dateStyle: 'full'
+    }).format(date);
+  };
+  
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  };
+  
+  const handleDateFilterChange = (e) => {
+    setDateFilter(e.target.value);
+  };
+  
+  // Filter attendance history by date
+  const filteredAttendanceHistory = dateFilter
+    ? attendanceHistory.filter(group => group.date === dateFilter)
+    : attendanceHistory;
 
   const handleRemoveStudent = async (studentId) => {
     if (!confirm('¿Estás seguro de que deseas eliminar a este estudiante de la clase?')) {
@@ -276,6 +348,106 @@ export default function ClassDetails({ params }) {
             </div>
           )}
         </div>
+      </div>
+      
+      {/* Attendance History Section */}
+      <div className="mt-8 bg-black rounded-lg shadow-lg p-6 border border-green-800">
+        <h2 className="text-xl font-semibold mb-4 text-green-400">Historial de Asistencia</h2>
+        
+        {/* Date filter */}
+        <div className="mb-6">
+          <label htmlFor="date-filter" className="block text-sm font-medium text-gray-400 mb-2">
+            Filtrar por fecha:
+          </label>
+          <select
+            id="date-filter"
+            value={dateFilter}
+            onChange={handleDateFilterChange}
+            className="bg-gray-900 text-white border border-green-800 rounded-md px-3 py-2 w-full max-w-xs"
+          >
+            <option value="">Todas las fechas</option>
+            {attendanceHistory.map(group => (
+              <option key={group.date} value={group.date}>
+                {formatDate(group.date)} ({group.presentCount}/{group.totalCount} asistencias)
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        {filteredAttendanceHistory.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-gray-400">No hay registros de asistencia para esta clase.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {filteredAttendanceHistory.map((dateGroup) => (
+              <div key={dateGroup.date} className="border-b border-green-800 pb-6 last:border-0 last:pb-0">
+                <h3 className="text-lg font-medium text-green-400 mb-4">
+                  {formatDate(dateGroup.date)}
+                  <span className="ml-2 text-sm text-gray-400">
+                    ({dateGroup.presentCount}/{dateGroup.totalCount} asistencias)
+                  </span>
+                </h3>
+                
+                <div className="overflow-auto max-h-80">
+                  <table className="min-w-full">
+                    <thead className="bg-gray-900">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-green-400 uppercase tracking-wider">Estudiante</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-green-400 uppercase tracking-wider">Email</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-green-400 uppercase tracking-wider">Estado</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-green-400 uppercase tracking-wider">Hora</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {students.map((student) => {
+                        // Find if student has an attendance record for this date
+                        const record = dateGroup.records.find(r => 
+                          r.student._id === student._id
+                        );
+                        const isPresent = !!record;
+                        
+                        return (
+                          <tr key={student._id}>
+                            <td className="px-4 py-3 whitespace-nowrap text-white">{student.name}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-white">{student.email}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                isPresent 
+                                  ? 'bg-green-900 text-green-300' 
+                                  : 'bg-red-900 text-red-300'
+                              }`}>
+                                {isPresent ? 'Presente' : 'Ausente'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right text-white">
+                              {isPresent ? formatTime(record.scanTime || record.date) : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="mt-4 text-right">
+                  <Link
+                    href={`/admin-panel/attendance/${id}?date=${dateGroup.date}`}
+                    className="inline-flex items-center text-green-400 hover:underline"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="9" cy="7" r="4"></circle>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    Gestionar asistencia
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
