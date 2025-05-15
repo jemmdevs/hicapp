@@ -78,7 +78,7 @@ export default function Home() {
                 handleRoleSelect('student');
               }}
             >
-              Registrarse como estudiante
+              Registro como estudiante
             </button>
           </div>
 
