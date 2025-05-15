@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -15,6 +15,18 @@ export default function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Si ya hay una sesión activa, redireccionar automáticamente
+  useEffect(() => {
+    if (status === 'authenticated') {
+      if (session.user.role === 'teacher') {
+        router.push('/admin-panel');
+      } else {
+        router.push('/dashboard');
+      }
+    }
+  }, [status, session, router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -60,11 +72,12 @@ export default function Register() {
         throw new Error(data.message || 'Error al registrar');
       }
 
-      // Automatically sign in the user
+      // Automatically sign in the user with rememberMe = true
       const signInResult = await signIn('credentials', {
         email: formData.email,
         password: formData.password,
         redirect: false,
+        callbackUrl: '/dashboard' // Parámetro para la redirección basada en "rememberMe"
       });
 
       if (signInResult.error) {
@@ -79,6 +92,15 @@ export default function Register() {
       setLoading(false);
     }
   };
+
+  // Si el estado está cargando, mostrar un loader
+  if (status === 'loading') {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center text-primary">
+        <p>Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 flex-grow flex items-center justify-center">

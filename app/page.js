@@ -1,12 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
 export default function Home() {
   const [selectedRole, setSelectedRole] = useState(null);
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Redireccionar automáticamente si hay una sesión activa
+  useEffect(() => {
+    if (status === 'authenticated') {
+      if (session.user.role === 'teacher') {
+        router.push('/admin-panel');
+      } else {
+        router.push('/dashboard');
+      }
+    }
+  }, [status, session, router]);
 
   const handleRoleSelect = (role) => {
     setSelectedRole(role);
@@ -16,6 +29,15 @@ export default function Home() {
       router.push('/auth/login');
     }
   };
+
+  // Si el estado está cargando, mostrar un loader
+  if (status === 'loading') {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center text-primary">
+        <p>Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-16 flex-grow flex flex-col justify-center">
