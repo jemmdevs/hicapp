@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { Html5Qrcode } from 'html5-qrcode';
 
 export default function ScanQRPage() {
   const { data: session, status } = useSession();
@@ -20,9 +19,18 @@ export default function ScanQRPage() {
   const [enrolledClasses, setEnrolledClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('');
   const [classIdFromUrl, setClassIdFromUrl] = useState(null);
+  const [Html5QrcodeScannerLib, setHtml5QrcodeScannerLib] = useState(null);
   
   const scannerRef = useRef(null);
   const html5QrcodeRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      import('html5-qrcode').then(module => {
+        setHtml5QrcodeScannerLib(module.Html5Qrcode);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     // Check if user is authenticated and is a student
@@ -46,7 +54,7 @@ export default function ScanQRPage() {
 
     // Cleanup scanner on unmount
     return () => {
-      if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
+      if (typeof window !== 'undefined' && html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
         try {
           html5QrcodeRef.current.stop();
         } catch (error) {
@@ -94,19 +102,19 @@ export default function ScanQRPage() {
   };
 
   useEffect(() => {
-    if (!loading && session && !scannerStarted && selectedClassId) {
+    if (!loading && session && !scannerStarted && selectedClassId && Html5QrcodeScannerLib) {
       initScanner();
     }
-  }, [loading, session, scannerStarted, selectedClassId]);
+  }, [loading, session, scannerStarted, selectedClassId, Html5QrcodeScannerLib]);
 
   const startScanner = async () => {
-    if (!html5QrcodeRef.current || scanning || !selectedClassId) return;
+    if (!html5QrcodeRef.current || scanning || !selectedClassId || !Html5QrcodeScannerLib) return;
     
     setScanning(true);
     setScannerError('');
     
     try {
-      const cameras = await Html5Qrcode.getCameras();
+      const cameras = await Html5QrcodeScannerLib.getCameras();
       if (cameras && cameras.length > 0) {
         await html5QrcodeRef.current.start(
           { facingMode: "environment" }, // Prefer back camera
@@ -139,11 +147,11 @@ export default function ScanQRPage() {
   };
 
   const initScanner = () => {
-    if (!scannerRef.current || scannerStarted || !selectedClassId) return;
+    if (!scannerRef.current || scannerStarted || !selectedClassId || !Html5QrcodeScannerLib) return;
 
     try {
       // Initialize the scanner but don't start it yet
-      html5QrcodeRef.current = new Html5Qrcode("qr-reader");
+      html5QrcodeRef.current = new Html5QrcodeScannerLib("qr-reader");
       setScannerStarted(true);
       // Start scanning automatically
       startScanner();
